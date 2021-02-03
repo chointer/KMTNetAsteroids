@@ -7,18 +7,97 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.table import vstack
 
+def MODE_printer(MODE_6, MODE_pre, MODECHECK):
+    MODE_6 = str(MODE_6)
+    MODE_pre = str(MODE_pre)
+    if sum(MODECHECK == MODE_6) == 0:
+        if MODE_6 == MODE_pre:
+            assert False, 'Error MODE_printer: MODE_6 == MODE_pre'
+        else:                               # case A -> B
+            MODE_for_save = MODE_6
+
+    elif sum(MODECHECK == MODE_6) == 1:
+        if MODE_6 == MODE_pre:              # case A -> A
+            MODE_for_save = MODE_pre
+        else:
+            if MODE_6 == MODE_pre[:6]:      # case A' -> A'
+                MODE_for_save = MODE_pre
+            else:                           # case B -> A', B' -> A''
+                MODE_for_save = MODE_6
+                while sum(MODECHECK == MODE_for_save) == 1:
+                    MODE_for_save = MODE_for_save + '0'
+    else:
+        assert False, 'Error MODE_printer: MODECHECK > 1'
+    return MODE_for_save
+
+
+def getPanSTARRS(savename, ra, dec, radius, constraints, columns, PanDir):
+    # flag : asteroid number, 0 = main ast
+    try:
+        with open(PanDir+'Pan.%s.pickle' % savename, 'rb') as f:
+            data = pickle.load(f)
+    except:
+        print('No Requested Pan Data -> download!')
+        data = getstarlist(ra, dec, radius, constraints, columns)
+        print('Download Complete')
+        with open(PanDir+'Pan.%s.pickle' % savename, 'wb') as f:
+            pickle.dump(data, f)
+    return data
+
+
+def download_Pan(ImageName, PanDir, ImgDir, MODECHECK, MODE_pre, radius_sub=(0.365)):
+    # radius_sub=0.365 for fitszed ref catalog
+    constraints = {'nDetections.gt': 4}
+    columns = """objID,raMean,decMean,nDetections,ng,nr,ni,nz,
+    gMeanKronMag,rMeanKronMag,iMeanKronMag,zMeanKronMag,
+    gMeanKronMagErr,rMeanKronMagErr,iMeanKronMagErr,zMeanKronMagErr,objInfoFlag""".split(',')
+
+    sub_center_pix = np.array([[2304, 2304, 6912, 6912], [2308, 6924, 2308, 6924]])
+    hdulist = fits.open(ImgDir + ImageName)
+
+    hdr_header = hdulist[0].header
+    MODE = hdr_header['OBJECT'][:6]
+
+    MODE_for_save = MODE_Printer(MODE, MODE_pre, MODECHECK)
+
+    for ChipNum in range(1, 5):
+        try:
+            with open(PanDir + 'Pan.' + MODE_for_save + '_Chip%s' % ChipNum + '.pickle', 'rb') as f:
+                print('Pan.' + MODE_for_save + '_Chip%s' % ChipNum + ' already exists.')
+            continue
+        except:
+            pass
+
+        hdr_chip = hdulist[ChipNum].header
+        wcs = WCS(hdr_chip)
+        sub_center_ra, sub_center_dec = wcs.wcs_pix2world(sub_center_pix[0], sub_center_pix[1], 1)
+        print(sub_center_ra, sub_center_dec)
+        for k in range(4):
+            table_sub = getPanSTARRS(MODE_for_save + '_Chip%s_Sub%s' % (ChipNum, k),
+                                     sub_center_ra[k], sub_center_dec[k],
+                                     radius_sub, constraints, columns, PanDir=PanDir)
+            if k == 0:
+                table_tot = table_sub.copy()
+            else:
+                duplication = np.isin(table_sub, table_tot)
+                table_tot = vstack([table_tot, table_sub[np.logical_not(duplication)]], join_type='exact')
+
+        with open(PanDir + 'Pan.' + MODE_for_save + '_Chip%s' % ChipNum + '.pickle', 'wb') as f:
+            pickle.dump(table_tot, f)
+
+    return MODE_for_save
+
+
+
 
 def download_ATLAS(ImageName, RefDir, ImgDir, MainRefDir, MODECHECK, MODE_pre, radius_sub=(0.708)):
     # radius_sub = 0.708 for fit-sized ref catalog
     hdulist = fits.open(ImgDir + ImageName)
+
     hdr_header = hdulist[0].header
     MODE = hdr_header['OBJECT'][:6]
-    if str(MODE_pre)[:6] == MODE:
-        MODE_for_save = str(MODE_pre)
-    else:
-        MODE_for_save = str(MODE)
-        while (sum(MODECHECK == MODE_for_save) == 1):
-            MODE_for_save = MODE_for_save + '0'
+
+    MODE_for_save = MODE_Printer(MODE, MODE_pre, MODECHECK)
     
     for ChipNum in range(1, 5):
         # existence check
@@ -55,10 +134,8 @@ def download_ATLAS(ImageName, RefDir, ImgDir, MainRefDir, MODECHECK, MODE_pre, r
         # [6] i, [7] i_err, [8] z, [9] z_err
 
         # extract star list
-        main_ref_ra_rad = np.radians(main_ref[:, 0])
-        main_ref_dec_rad = np.radians(main_ref[:, 1])
-        mask = ((np.cos(np.radians(sub_center_dec)) * (main_ref[:, 0] - sub_center_ra)) ** 2 +
-                (main_ref[:, 1] - sub_center_dec) ** 2)**0.5 < radius_sub
+        mask = ((np.cos(np.radians(sub_center_dec)) * (main_ref[:, 0] - sub_center_ra)) ** 2
+                + (main_ref[:, 1] - sub_center_dec) ** 2) ** 0.5 < radius_sub
         table = main_ref[mask]
         print(sum(mask))
 
@@ -99,61 +176,3 @@ def download_ATLAS(ImageName, RefDir, ImgDir, MainRefDir, MODECHECK, MODE_pre, r
     return MODE_for_save
 
 
-def getPanSTARRS(savename, ra, dec, radius, constraints, columns, PanDir):
-    # flag : asteroid number, 0 = main ast
-    try:
-        with open(PanDir+'Pan.%s.pickle' % savename, 'rb') as f:
-            data = pickle.load(f)
-    except:
-        print('No Requested Pan Data -> download!')
-        data = getstarlist(ra, dec, radius, constraints, columns)
-        print('Download Complete')
-        with open(PanDir+'Pan.%s.pickle' % savename, 'wb') as f:
-            pickle.dump(data, f)
-    return data
-
-
-def download_Pan(ImageName, PanDir, ImgDir, MODECHECK, MODE_pre, radius_sub=(0.365)):
-    # radius_sub=0.365 for fitszed ref catalog
-    constraints = {'nDetections.gt': 4}
-    columns = """objID,raMean,decMean,nDetections,ng,nr,ni,nz,
-    gMeanKronMag,rMeanKronMag,iMeanKronMag,zMeanKronMag,
-    gMeanKronMagErr,rMeanKronMagErr,iMeanKronMagErr,zMeanKronMagErr,objInfoFlag""".split(',')
-
-    sub_center_pix = np.array([[2304, 2304, 6912, 6912], [2308, 6924, 2308, 6924]])
-    hdulist = fits.open(ImgDir + ImageName)
-    hdr_header = hdulist[0].header
-    MODE = hdr_header['OBJECT'][:6]
-    if str(MODE_pre)[:6] == MODE:
-        MODE_for_save = str(MODE_pre)
-    else:
-        MODE_for_save = str(MODE)
-        while (sum(MODECHECK == MODE_for_save) == 1):
-            MODE_for_save = MODE_for_save + '0'
-
-    for ChipNum in range(1, 5):
-        try:
-            with open(PanDir + 'Pan.' + MODE_for_save + '_Chip%s' % ChipNum + '.pickle', 'rb') as f:
-                print('Pan.' + MODE_for_save + '_Chip%s' % ChipNum + ' already exists.')
-            continue
-        except:
-            pass
-
-        hdr_chip = hdulist[ChipNum].header
-        wcs = WCS(hdr_chip)
-        sub_center_ra, sub_center_dec = wcs.wcs_pix2world(sub_center_pix[0], sub_center_pix[1], 1)
-        print(sub_center_ra, sub_center_dec)
-        for k in range(4):
-            table_sub = getPanSTARRS(MODE_for_save + '_Chip%s_Sub%s' % (ChipNum, k),
-                                     sub_center_ra[k], sub_center_dec[k],
-                                     radius_sub, constraints, columns, PanDir=PanDir)
-            if k == 0:
-                table_tot = table_sub.copy()
-            else:
-                duplication = np.isin(table_sub, table_tot)
-                table_tot = vstack([table_tot, table_sub[np.logical_not(duplication)]], join_type='exact')
-
-        with open(PanDir + 'Pan.' + MODE_for_save + '_Chip%s' % ChipNum + '.pickle', 'wb') as f:
-            pickle.dump(table_tot, f)
-
-    return MODE_for_save
