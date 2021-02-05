@@ -239,7 +239,7 @@ class match:
             AstTab_xy[idx_inside, 1] = AstTab_y_temp[idx_inside]
         AstTab = np.concatenate((AstTab, AstTab_CHIPAMP), axis=1)
         MagLim = MagLim120 + 2.5 * np.log10(self.EXPTIME/120)
-        mask = (AstTab[:, 5].astype(float) < MagLim) * (AstTab[:, 8].astype(float) > 0) * (AstTab[:, 9].astype(float) >= 0)
+        mask = (AstTab[:, 5].astype(float) < MagLim) * (AstTab[:, 14].astype(float) > 0) * (AstTab[:, 15].astype(float) >= 0)
         #mask = (AstTab[:, 8].astype(float) > 0) * (AstTab[:, 9].astype(float) >= 0)
         self.AstTab = AstTab[mask]
         self.AstTab_xy = AstTab_xy[mask]
@@ -253,13 +253,13 @@ class match:
         # AstTab : [0] number, [1] name, [2] ra, [3] dec, [4] class(loc), [5] Mv,
         #          [6] err_pos, [7] body-to-center angular dist, [8] motion, [9] motion,
         #          [10] geocentric dist, [11] heliocentric dist, [12] Phase angle,
-        #          [13] Solar elongation
+        #          [13] Solar elongation, [14] CHIPNUM, [15] AMPNUM
         AstNum = AstInfo[0]
         AstRa = float(AstInfo[2])
         AstDec = float(AstInfo[3])
         AstMv = float(AstInfo[5])
-        AstCHIPNUM = int(AstInfo[8])
-        AstAMPNUM = int(AstInfo[9])
+        AstCHIPNUM = int(AstInfo[14])
+        AstAMPNUM = int(AstInfo[15])
         print(' === === === Match :%s === === === ' % AstNum)
 
         #####################
@@ -290,7 +290,7 @@ class match:
                                    (((np.cos(np.radians(AstDec)) * (PanTab['raMean'] - AstRa)) ** 2 +
                                      (PanTab['decMean'] - AstDec) ** 2) ** 0.5 < RefRad))
                 PanTab = PanTab[idx_Pan]
-                wcs = WCS(self.hdulist[int(AstInfo[8])].header)
+                wcs = WCS(self.hdulist[int(AstInfo[14])].header)
                 StdX, StdY = wcs.wcs_world2pix(PanTab['raMean'], PanTab['decMean'], 1)
                 # table ['ID', 'ra', 'dec', 'x', 'y', 'g', 'ge', 'r', 're', 'i', 'ie', 'z', 'ze']
                 StdTab = Table([PanTab['newID'], PanTab['raMean'], PanTab['decMean'], StdX, StdY,
@@ -314,7 +314,7 @@ class match:
                                      (AtlTab[:, 1] - AstDec) ** 2) ** 0.5 < RefRad))
                 AtlID = AtlID[idx_Atl]
                 AtlTab = AtlTab[idx_Atl]
-                wcs = WCS(self.hdulist[int(AstInfo[8])].header)
+                wcs = WCS(self.hdulist[int(AstInfo[14])].header)
                 StdX, StdY = wcs.wcs_world2pix(AtlTab[:, 0], AtlTab[:, 1], 1)
                 # table ['ID', 'ra', 'dec', 'x', 'y', 'g', 'ge', 'r', 're', 'i', 'ie', 'z', 'ze']
                 StdTab = Table([AtlID, AtlTab[:, 0], AtlTab[:, 1], StdX, StdY,
