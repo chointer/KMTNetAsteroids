@@ -1,5 +1,7 @@
-# 20200724 download_ATLAS, download_Pan
-#	   -> MODE check part modify
+# 20200724  download_ATLAS, download_Pan
+#	    -> MODE check part modify
+# 20210203  MODE_printer
+#       -> MODE check part modify
 from PanSTARRS import *
 import numpy as np
 import pickle
@@ -58,7 +60,7 @@ def download_Pan(ImageName, PanDir, ImgDir, MODECHECK, MODE_pre, radius_sub=(0.3
     hdr_header = hdulist[0].header
     MODE = hdr_header['OBJECT'][:6]
 
-    MODE_for_save = MODE_Printer(MODE, MODE_pre, MODECHECK)
+    MODE_for_save = MODE_printer(MODE, MODE_pre, MODECHECK)
 
     for ChipNum in range(1, 5):
         try:
@@ -97,7 +99,7 @@ def download_ATLAS(ImageName, RefDir, ImgDir, MainRefDir, MODECHECK, MODE_pre, r
     hdr_header = hdulist[0].header
     MODE = hdr_header['OBJECT'][:6]
 
-    MODE_for_save = MODE_Printer(MODE, MODE_pre, MODECHECK)
+    MODE_for_save = MODE_printer(MODE, MODE_pre, MODECHECK)
     
     for ChipNum in range(1, 5):
         # existence check

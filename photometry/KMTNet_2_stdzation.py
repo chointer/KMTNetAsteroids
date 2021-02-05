@@ -8,27 +8,17 @@ import matplotlib.pyplot as plt
 from astropy.io import fits as fi
 from astropy.visualization import simple_norm
 import os, sys
-sys.path.insert(0, '/data2/SHChoi/phot/python_script/MyModule')
+sys.path.append("/data2/SHChoi/phot/python_script/MyModule")
 from standardization import standardization_fit, sigma_boundary
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+from ModuleCommon import     err_Add, err_Mul
 import time
 import pandas as pd
-
-def err_Add(errors):
-    errors = np.array(errors)
-    return (np.sum(errors**2, axis=0))**0.5
-
-def err_Mul(elements, errors):
-    x = np.prod(elements, axis=0)
-    elements = np.array(elements)
-    errors = np.array(errors)
-    xerr = x * (np.sum((errors/elements)**2, axis=0))**0.5
-    return xerr
 
 def HeadReader(PhotTabDirName):
     dic = {}
     with open(PhotTabDirName, 'r') as f:
-        for ii in range(15):
+        for ii in range(21):
             line = f.readline().split()
             dic[line[1]] = line[2]
     return dic
@@ -50,7 +40,7 @@ def figure_coeff(CoeTab, FILTERS, title='', bins_gap=0.2, save=False, dir_save='
     axs = []
     # C1 histograms
     ax_range = []; ax_center = []; ax_height = []
-    for k in range(4) :
+    for k in range(4):
         axs.append(fig.add_subplot(2, 4, k+1))
         if k == 0 : axs[k].set_ylabel('C1 [#]')
         axs[k].set_title(FILTERS[k])
@@ -107,6 +97,7 @@ class asteroid_standardization:
         print('\n === === === Standardization %s === === ===' % self.MODE)
         # coefficient storage
         self.CoeffSet = []
+        self.AstErrSet = []
         self.AstPhotSet = []
         self.FlagTargetTab = False
 
@@ -287,6 +278,32 @@ class asteroid_standardization:
                               self.FitSet[2].C3, self.FitSet[2].C3err, self.FitSet[2].C4, self.FitSet[2].C4err,
                               self.FitSet[3].C1, self.FitSet[3].C1err, self.FitSet[3].C2, self.FitSet[3].C2err,
                               self.FitSet[3].C3, self.FitSet[3].C3err, self.FitSet[3].C4, self.FitSet[3].C4err])
+
+    def SaveErr(self):
+        # [00] F1e_ori, [01] F1e_obs, [02] F1e_del_mean, [03] F1e_del_std,
+        # [04] F2e_ori, [05] F2e_obs, [06] F2e_del_mean, [07] F2e_del_std,
+        # [08] F3e_ori, [09] F3e_obs, [10] F3e_del_mean, [11] F3e_del_std,
+        # [12] F4e_ori, [13] F4e_obs, [14] F4e_del_mean, [15] F4e_del_std,
+        # [16] C12_del_mean, [17] C12_del_std,
+        # [18] C12_del_mean, [19] C12_del_std,
+        # [20] C12_del_mean, [21] C12_del_std
+        TabF1, TabF2, TabF3, TabF4 = self.MatTabSet
+        TabFSet = [0, TabF1[1:], TabF2[1:], TabF3[1:], TabF4[1:]]
+        F1_delta = (self.TabF1_cal[0] - TabFSet[1][:, 3])[self.FitSet[0].mask]
+        F2_delta = (self.TabF2_cal[0] - TabFSet[2][:, 3])[self.FitSet[1].mask]
+        F3_delta = (self.TabF3_cal[0] - TabFSet[3][:, 3])[self.FitSet[2].mask]
+        F4_delta = (self.TabF4_cal[0] - TabFSet[4][:, 3])[self.FitSet[3].mask]
+        C12_delta = ((self.TabF1_cal[0] - self.TabF2_cal[0]) - (TabFSet[1][:, 3] - TabFSet[2][:, 3]))[self.FitSet[0].mask]
+        C23_delta = ((self.TabF2_cal[0] - self.TabF3_cal[0]) - (TabFSet[2][:, 3] - TabFSet[3][:, 3]))[self.FitSet[2].mask]
+        C34_delta = ((self.TabF3_cal[0] - self.TabF4_cal[0]) - (TabFSet[3][:, 3] - TabFSet[4][:, 3]))[self.FitSet[3].mask]
+
+        self.AstErrSet.append([self.AstF1_cal[1], TabF1[0, 6], np.mean(F1_delta), np.std(F1_delta),
+                               self.AstF2_cal[1], TabF2[0, 6], np.mean(F2_delta), np.std(F2_delta),
+                               self.AstF3_cal[1], TabF3[0, 6], np.mean(F3_delta), np.std(F3_delta),
+                               self.AstF4_cal[1], TabF4[0, 6], np.mean(F4_delta), np.std(F4_delta),
+                               np.mean(C12_delta), np.std(C12_delta),
+                               np.mean(C23_delta), np.std(C23_delta),
+                               np.mean(C34_delta), np.std(C34_delta)])
 
     def SaveAst(self):
         # [0] Date, [1] MODE, [2] AstNum,

@@ -17,6 +17,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from scipy import stats
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.visualization import simple_norm
@@ -27,11 +28,11 @@ import pickle
 import requests
 import time
 import sys
+sys.path.append("/data2/SHChoi/phot/python_script/MyModule")
 from PanSTARRS import *
-sys.path.insert(0, '/data2/SHChoi/phot/python_script/MyModule')
 from linfit_sigclip import linfit_sigclip, sigma_boundary
-from scipy import stats
 from ModuleCommon import hms2deg_header, dms2deg_header, hms2deg_SkyBoT, dms2deg_SkyBoT, err_Add, err_Mul
+from ModuleRefDown import MODE_printer
 
 def tran_lin(f, b, r, C0, C1, fe, be, re, C0e, C1e):
     result = f + C0 + C1*(b-r)
@@ -48,7 +49,7 @@ def tran_quad(f, b, r, D0, D1, D2, fe, be, re, D0e, D1e, D2e):
     Err_quad = err_Mul([np.ones_like(f) * D2, c**2], [np.ones_like(f) * D2e, c*ce*(2**0.5)])
     return result, err_Add([fe, D0e, Err_lin, Err_quad])
 
-def getastlist(ep, ra, dec, rd, mime='text', output='object', loc='W93', err_pos=2, obj=101):
+def getastlist(ep, ra, dec, rd, mime='text', output='obs', loc='W93', err_pos=2, obj=101):
     query = 'http://vo.imcce.fr/webservices/skybot/skybotconesearch_query.php?' + \
             '&-ep=%f' %ep + '&-ra=%f' %ra + '&-dec=%f' %dec + '&-rd=%f' %rd + \
             '&-mime=%s' %mime + '&-output=%s' %output + '&-loc=%s' %loc + \
@@ -70,7 +71,7 @@ def match2tables(stdx, stdy, obsx, obsy, d=5):
     for a in range(len(stdx)):
         dist = ((stdx[a]-obsx)**2 + (stdy[a]-obsy)**2)**0.5
         idx = np.where(dist < d)[0]
-        if len(idx) == 1 :
+        if len(idx) == 1:
             idx_std.append(a)
             idx_obs.append(idx[0])
     idx_std = np.array(idx_std)
@@ -168,9 +169,10 @@ class match:
         self.EXPTIME = self.hdr_header['EXPTIME']
         self.DATE = self.hdr_header['DATE-OBS']     # UTC
         self.MODE = self.hdr_header['OBJECT'][:6]
-        assert False # check mode handling !
-        while (self.MODE != MODE_pre) and (sum(MODECHECK == self.MODE) == 1):
-            self.MODE = self.MODE + '0'
+        #assert False # check mode handling !
+        #while (self.MODE != MODE_pre) and (sum(MODECHECK == self.MODE) == 1):
+        #    self.MODE = self.MODE + '0'
+        self.MODE = MODE_printer(self.MODE, MODE_pre, MODECHECK)
         self.JD = Time(self.DATE).jd
         self.RA_c = hms2deg_header(self.hdr_header['RA'])
         self.DEC_c = dms2deg_header(self.hdr_header['DEC'])
@@ -184,11 +186,13 @@ class match:
 
 
     def GetAstTab(self, AstTabName, AstDir, MagLim120=22,
-                  rd=1.6, mime='text', output='object', loc='W93', err_pos=2, obj=101, boundary=10):
+                  rd=1.6, mime='text', output='obs', loc='W93', err_pos=2, obj=101, boundary=10):
         """
-        return self.AstTab
+        return self.AstTab (output='obs')
              [0] number, [1] name, [2] ra, [3] dec, [4] class(loc), [5] Mv,
-             [6] err_pos, [7] angular dist, [8] CHIPNUM, [9] AMPNUM
+             [6] err_pos, [7] angular dist, [8] motion, [9] motion,
+             [10] geocenetric dist, [11] heliocentric dist,
+             [12] Phase angle, [13] Solar elongation, [14] CHIPNUM, [15] AMPNUM
         """
         try:
             with open(AstDir+AstTabName+'.pickle', 'rb') as f:
@@ -198,7 +202,9 @@ class match:
             AstTab = getastlist(self.JD, self.RA_c, self.DEC_c,
                                 rd=rd, mime=mime, output=output, loc=loc, err_pos=err_pos, obj=obj)
             # AstTab : [0] number, [1] name, [2] ra, [3] dec, [4] class(loc), [5] Mv,
-            #          [6] err_pos, [7] body-to-center angular dist.
+            #          [6] err_pos, [7] body-to-center angular dist, [8] motion, [9] motion,
+            #          [10] geocentric dist, [11] heliocentric dist, [12] Phase angle,
+            #          [13] Solar elongation
 
             #AstNumException = -1
             for k in range(len(AstTab)):
@@ -244,6 +250,10 @@ class match:
               OutDir, FLUX_RADIUS_SIG_max, FLUX_RADIUS_SIG_min, Mag_Diff_max, quadfitTF, match_N_min=34,
               CheckImage=True, dpi=150):
         # IDist : identification distance [pix]
+        # AstTab : [0] number, [1] name, [2] ra, [3] dec, [4] class(loc), [5] Mv,
+        #          [6] err_pos, [7] body-to-center angular dist, [8] motion, [9] motion,
+        #          [10] geocentric dist, [11] heliocentric dist, [12] Phase angle,
+        #          [13] Solar elongation
         AstNum = AstInfo[0]
         AstRa = float(AstInfo[2])
         AstDec = float(AstInfo[3])
@@ -570,12 +580,19 @@ class match:
                                    ObsTab['MAG_AUTO'][idx_AstInObsTab[0]], ObsTab['MAGERR_AUTO'][idx_AstInObsTab[0]],
                                    AstRa_Obs[0], AstDec_Obs[0]]])
 
+        # AstTab : [0] number, [1] name, [2] ra, [3] dec, [4] class(loc), [5] Mv,
+        #          [6] err_pos, [7] body-to-center angular dist, [8] motion, [9] motion,
+        #          [10] geocentric dist, [11] heliocentric dist, [12] Phase angle,
+        #          [13] Solar elongation
         np.savetxt(OutDir + SaveMatTabName + '.cat', np.concatenate((AstOutput, MatTab[mask_clip]), axis=0),
                    fmt='%d\t%.4f\t%.4f\t%.4f\t%.6f\t%.4f\t%.4f\t%.4f\t%.4f',
-                   header='image     %s\n' % self.ImgName + 'EXPTIME   %s\n' % self.EXPTIME +
-                          'MODE      %s\n' % self.MODE + 'CHIP      %s\n' % chipnames[AstCHIPNUM] +
-                          'CHIPNUM   %s\n' % AstCHIPNUM + 'FILTER    %s\n' % self.FILTER +
-                          'RefType   %s\n' % std_type + 'ast_id    %s\n' % AstNum.strip() +
+                   header='image     %s\n' % self.ImgName   + 'EXPTIME   %s\n' % self.EXPTIME +
+                          'MODE      %s\n' % self.MODE      + 'CHIP      %s\n' % chipnames[AstCHIPNUM] +
+                          'CHIPNUM   %s\n' % AstCHIPNUM     + 'FILTER    %s\n' % self.FILTER +
+                          'RefType   %s\n' % std_type       + 'ast_id    %s\n' % AstNum.strip() +
+                          'ast_nam_S %s\n' % AstInfo[1]     + 'ast_class %s\n' % AstInfo[4] +
+                          'dist_GC   %s\n' % AstInfo[10]    + 'dist_HC   %s\n' % AstInfo[11] +
+                          'PhAngle   %s\n' % AstInfo[12]    + 'SolElong  %s\n' % AstInfo[13] +
                           'ellipti   %s\n' % ObsTab['ELLIPTICITY'][idx_AstInObsTab[0]] +
                           'FLAG_SEx  %s\n' % ObsTab['FLAGS'][idx_AstInObsTab[0]] +
                           'JD        %s\n' % self.JD +

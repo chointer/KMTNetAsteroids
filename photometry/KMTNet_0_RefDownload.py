@@ -1,9 +1,9 @@
 import numpy as np
-import pickle
-import time
+import pickle, time, sys
 from astropy.io import fits
 from astropy.table import vstack
 from astropy.wcs import WCS
+sys.path.append("/data2/SHChoi/phot/python_script/MyModule")
 from PanSTARRS import *
 from ModuleCommon import dms2deg_header
 from ModuleRefDown import getPanSTARRS, download_Pan, download_ATLAS

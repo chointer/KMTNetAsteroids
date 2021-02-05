@@ -149,6 +149,7 @@ for dates in range(len(Datelist)):
             # Store Data
             project.SaveAst()                                                       # Save AstPhot
             project.SaveCoeff()                                                     # Save Coeffs (MODE, AstNum, coeffs)
+            project.SaveErr()
 
             # Draw Figures
             project.Figure_Fit(save=True, dir_save=SaveDir, AddSaveName='')         # fitting figure
@@ -164,10 +165,12 @@ for dates in range(len(Datelist)):
         elif FLAG_AstPhotSet is False:
             AstPhotSet_tot = np.array(project.AstPhotSet)
             TabCoe = np.array(project.CoeffSet)
+            TabErr = np.array(project.AstErrSet)
             FLAG_AstPhotSet = True
         else:
             AstPhotSet_tot = np.concatenate((AstPhotSet_tot, np.array(project.AstPhotSet)))
             TabCoe = np.concatenate((TabCoe, np.array(project.CoeffSet)))
+            TabErr = np.concatenate((TabErr, np.array(project.AstErrSet)))
 
     print('Total Asteroids : %s' %TotalAsteroids)
 
@@ -190,6 +193,10 @@ for dates in range(len(Datelist)):
     # Save Std. Coeff. Data Table
     CoeTab_pd = pd.DataFrame(TabCoe)
     CoeTab_pd.to_csv(SaveDir + 'Coeff' + Date + '.dat', sep='\t', index=False, header=False)
+
+    # Save Error Data Table
+    ErrTab_pd = pd.DataFrame(TabErr)
+    ErrTab_pd.to_csv(SaveDir + 'Error' + Date + '.dat', sep='\t', index=False, header=False)
 
     print('\n\ndone')
     print(time.time()-t0)
