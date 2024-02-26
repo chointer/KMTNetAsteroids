@@ -21,18 +21,18 @@
 ```
 KMTNetAsteroids/
 ├── README.md
-├── MyModule/
-│   ├── ModuleCommon.py
+├── MyModule/                      # 재사용 가능한 기능을 모듈로 정리
+│   ├── ModuleCommon.py            ## deg 단위 변환 함수, 오차 전파 계산 함수, 선형 회귀 with sigma-clipping
 │   ├── ModulePCA.py
 │   ├── ModuleRefDown.py
 │   ├── PanSTARRS.py
 │   └── standardization.py
-├── analysis/
+├── analysis/                      # 측광 결과 분석
 │   └── analysis_error.py
-└── photometry/
-     ├── KMTNet_0_RefDownload.py
-     ├── KMTNet_1_match.py
-     ├── KMTNet_2_stdzation.py
-     ├── KMTNet_3_gather.py
-     └── KMTNet_TotalRun.py
+└── photometry/                    # 측광 코드
+    ├── KMTNet_0_RefDownload.py    ## 관측 하늘에 위치한 천체 정보 다운로드 함수
+    ├── KMTNet_1_match.py          ## 광원과 별, 소행성 동정 함수
+    ├── KMTNet_2_stdzation.py      ## 등급 표준화 함수
+    ├── KMTNet_3_gather.py         ## 중복 관측 결과 통합 함수
+    └── KMTNet_TotalRun.py         ## 전체 측광 코드 실행
 ```
