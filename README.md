@@ -4,7 +4,7 @@
 <br/><br/>
 
 - **연구 기간**  
-  2018.09. - 2022.05.
+  2018.09. ~ 2022.05.
 <br/><br/>
 
 - **기술 스택**  
@@ -18,7 +18,7 @@
   ```
   KMTNetAsteroids/
   ├── README.md
-  ├── MyModule/                      # 재사용 가능한 기능을 모듈로 정리
+  ├── MyModule/                      # 재사용할 수 있는 기능을 모듈로 정리
   │   ├── ModuleCommon.py            ## deg 단위 변환 함수, 오차 전파 계산 함수, 선형 회귀 with sigma-clipping
   │   ├── ModulePCA.py
   │   ├── ModuleRefDown.py
